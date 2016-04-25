@@ -3,15 +3,9 @@ package com.example.mypr;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Environment;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewTreeObserver;
@@ -20,26 +14,23 @@ import android.widget.LinearLayout;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.stream.JsonReader;
+import com.nostra13.universalimageloader.core.ImageLoader;
+import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLConnection;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -48,16 +39,13 @@ public class MainActivity extends AppCompatActivity {
     private ProgressDialog progress;
     private String jsonUrl = "http://cache-default05e.cdn.yandex.net/download.cdn.yandex.net/mobilization-2016/artists.json";
     private String jsonPath = "FileWithJson.txt";
-    private String appPath = "/sdcard/Artists/";
+    private String appPath = "/sdcard/Artists/";// путь для хранения временных файлов
     Artist[] arrayArtists;
     private Integer currentLoadArtist = 0;
-    private Integer step = 10;
+    private Integer step = 5; // шаг подгрузки новых исполнителей
     private Integer TotalArtist = 0;
 
     LinearLayout mainLayout;
-
-    //FileOperations fop;
-    ImageAsync downloadTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -66,26 +54,25 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         mainLayout = (LinearLayout)findViewById(R.id.InnerMainLL);
 
-       final  ScrollView mainScroll = (ScrollView)findViewById(R.id.scrollView);
+        final  ScrollView mainScroll = (ScrollView)findViewById(R.id.scrollView);
+
         mainScroll.getViewTreeObserver().addOnScrollChangedListener(new ViewTreeObserver.OnScrollChangedListener() {
             @Override
-            public void onScrollChanged() {
-
+            public void onScrollChanged()
+            {
+                // если прокрутили весь текущий лист загруженных исполнителей, то
                 if(mainScroll.getHeight()+mainScroll.getScrollY() == mainLayout.getHeight())
                 {
-                    RenderLayout();
                     currentLoadArtist += step;
+                    RenderLayout(); // отрисовка новых блоков исполнителей
                 }
-                Log.d("TAG", mainScroll.getScrollY() + "");
-                System.out.println("mainScroll.height = "+mainScroll.getHeight());
-                System.out.println("mainLayout.getVerticalScrollbarPosition() = " + mainLayout.getVerticalScrollbarPosition());
-                System.out.println("mainLayout.getHeight() = " + mainLayout.getHeight());
-
             }
         });
 
        File dirApp = new File(appPath);
-       try {
+       try
+       {
+           //если папки для хранения временных файлов не существует, то создаем
            if (!dirApp.exists())
                dirApp.mkdirs();
        }
@@ -95,25 +82,29 @@ public class MainActivity extends AppCompatActivity {
        }
 
         File jsonFile = new File(appPath+jsonPath);
+        //проверяем, если json с описанием артистов уже загружен, то отрисовываем
         if( jsonFile.exists())
         {
             RenderLayout();
         }
         else
         {
-           // sendGetRequest
+           // если нет, то загружаем
             new GetClass(this).execute(jsonUrl, appPath+jsonPath);
         }
     }
 
+    //отрисовка блоков исполнителей
     public void RenderLayout()
     {
         Gson gson = new GsonBuilder().create();
 
-        try {
+        try
+        {
             InputStream fileIn = new BufferedInputStream(new FileInputStream(new File(appPath+jsonPath)));
             JsonReader jsonReader = new JsonReader(new InputStreamReader(fileIn, "UTF-8"));
             jsonReader.setLenient(true);
+            //преобразуем из json формата  в массив объектов  Artist
             arrayArtists = gson.fromJson(jsonReader, Artist[].class);
         }
         catch (Exception e)
@@ -121,47 +112,32 @@ public class MainActivity extends AppCompatActivity {
             System.out.println("exp = "+e);
         }
         TotalArtist = arrayArtists.length;
-        // не забыть проверку на step  с переполнением массива
-        if(TotalArtist <= currentLoadArtist+step){
+
+        // проверка на то, достигли ли конца массива с шагом step
+        if(TotalArtist <= currentLoadArtist+step)
+        {
             step =  TotalArtist - currentLoadArtist;
         }
+
+        //отображаем количество блоков с артистами, равное шагу step
         for(int i = currentLoadArtist; i < currentLoadArtist+step; i++)
-       // for(int i = 0; i < 10; i++)
         {
             LinearLayout slaveLayout = new LinearLayout(this);
             slaveLayout.setOrientation(LinearLayout.HORIZONTAL);
 
             final Artist objArtist = arrayArtists[i];
 
-
-            File dirImage = new File(appPath+ Integer.toString(objArtist.id));
-            try {
-                if (!dirImage.exists())
-                    dirImage.mkdirs();
-            }
-            catch (Exception e)
-            {
-                System.out.println("ex = "+e);
-            }
-
+            //создаем Layout для отображения информации об артистах
             LinearLayout forTextLayout = new LinearLayout(this);
             forTextLayout.setOrientation(LinearLayout.VERTICAL);
             forTextLayout.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
 
             ImageView pic = new ImageView(this);
-            Bitmap bmOriginal = BitmapFactory.decodeResource(getResources(), R.drawable.default300);
 
-            //original size
-            int width = bmOriginal.getWidth();
-            int height = bmOriginal.getHeight();
-
-            // half from original size
-            int halfWidth = width / 2;
-            int halfHeight = height / 2;
-            Bitmap bmHalf = Bitmap.createScaledBitmap(bmOriginal, halfWidth,halfHeight, false);
-            pic.setImageBitmap(bmHalf);
-
-            pic.setLayoutParams(new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+            //для загружки изображений используем библиотеку ImageLoader
+            ImageLoader imageLoader = ImageLoader.getInstance(); // Получили экземпляр
+            imageLoader.init(ImageLoaderConfiguration.createDefault(this)); // Проинициализировали конфигом по умолчанию
+            imageLoader.displayImage(objArtist.cover.small, pic); // Запустили асинхронный показ картинки
             slaveLayout.addView(pic);
 
             TextView labelName = new TextView(this);
@@ -193,15 +169,7 @@ public class MainActivity extends AppCompatActivity {
 
             mainLayout.addView(slaveLayout);
 
-            System.out.println("*************!!!! start ImageAsync !!!!!!********** ");
-            //проверка на существование добавить до загружки деолтных изображений
-
-            //Запускаем задачу, передавая ей ссылку на картинку и путь для сохранения
-            //не берем mime type,жестко присваиваем jpg
-            downloadTask = new ImageAsync(this, pic);
-            downloadTask.execute(objArtist.cover.small, appPath + Integer.toString(objArtist.id)+"/"+
-                objArtist.name.toString()+"_small.jpg");
-
+            //слушатель на нажатие по блоку с артистом для перехода на новую  AboutActivity
             slaveLayout.setOnClickListener(new View.OnClickListener()
             {
                 @Override
@@ -209,6 +177,7 @@ public class MainActivity extends AppCompatActivity {
                 {
                     Intent intent = new Intent(MainActivity.this, AboutActivity.class);
 
+                    //передаем в активити текущий объект исполнителя
                     intent.putExtra("artist",objArtist);
                     try
                     {
@@ -226,7 +195,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
+    //класс асинхронного потока для загрузки json файла
     private class GetClass extends AsyncTask<String, Void, Void>
     {
         String path;
@@ -288,9 +257,10 @@ public class MainActivity extends AppCompatActivity {
             this.context = c;
         }
 
-        protected void onPreExecute(){
+        protected void onPreExecute()
+        {
             progress= new ProgressDialog(this.context);
-            progress.setMessage("Загрузка json файла");
+            progress.setMessage("Загрузка приложения");
             progress.show();
         }
 
@@ -300,134 +270,5 @@ public class MainActivity extends AppCompatActivity {
             RenderLayout();
         }
     }
-
-
-    /*
-     * Расширяем класс  AsyncTask<Params, Progress, Result>
-     * указываем, какими типами будут его generic-параметры.
-     * Params - тип входных данных. В нашем случае будет String, т.к. передается url картинки
-     * Progress - тип данных, которые будут переданы для обновления прогресса. В нашем случае Integer.
-     * Result - тип результата. В нашем случае Drawble.
-     */
-    private class ImageAsync extends AsyncTask<String, Integer, Drawable>
-    {
-        ImageView img;
-        String path;
-        private final Context context;
-      //  Bitmap bitIcon;
-        String mimeImg;
-        String url;
-        ProgressDialog progressDialog;
-        long total = 0;
-        InputStream inputSt;
-
-        public ImageAsync(Context c, ImageView img)
-        {
-            this.context = c;
-            this.img = img;
-            this.mimeImg = "";
-        }
-
-
-        protected void onPreExecute()
-        {
-            //Отображаем системный диалог загрузки
-            progressDialog = new ProgressDialog(this.context);
-            progressDialog.setIndeterminate(false);
-            progressDialog.setMessage("Загрузка изображений");
-            progressDialog.show();
-        }
-
-
-        protected void onProgressUpdate(Integer... progress)
-        {
-            super.onProgressUpdate(progress);
-            progressDialog.setProgress(progress[0]);
-        }
-
-        //Скроем диалог и покажем картинку
-        @Override
-        protected void onPostExecute(Drawable result)
-        {
-            img.setImageDrawable(result);
-            progressDialog.dismiss();
-        }
-
-
-        @Override
-        protected Drawable doInBackground(String... params)
-        {
-            int count;
-            //url = null;
-            path = null;
-           // bitIcon = null;
-
-            try//проверка массива входных параметров на непустоту
-            {
-                if (params.length > 0)
-                {
-                  //  url = params[0];//url картинки
-                    path = params[1];//путь к папке, куда сохранить нужно
-                }
-            }
-            catch (Exception e)
-            {
-                Log.d("empty img params", e.getMessage());
-                e.printStackTrace();
-                return null;
-            }
-
-            //пытаемся загрузить изображение в bitmap and ImageView
-            try
-            {
-                /*InputStream in = new java.net.URL(url).openStream();
-                bitIcon = BitmapFactory.decodeStream(in);*/
-                //***************************************************
-                URL url = new URL(params[0]);
-                URLConnection connection = url.openConnection();
-                connection.connect();
-                int lengthOfFile = connection.getContentLength();
-
-                //Constructs a new BufferedInputStream, providing in with a buffer of 8192 bytes.
-                inputSt = new BufferedInputStream(url.openStream(), 8192);
-
-                //куда сохранить
-                OutputStream output = new FileOutputStream(path);
-
-                byte data[] = new byte[256];
-                while ((count = inputSt.read(data)) != -1)
-                {
-                    //Проверяем, актуальна ли еще задача
-                    if (isCancelled())
-                    {
-                        return null;
-                    }
-                    total += count;
-                    output.write(data, 0, count);
-
-                    //Информирование о закачке.
-                    //Передаем число, отражающее процент загрузки файла
-                    //После вызова этого метода автоматически будет вызван
-                    //onProgressUpdate в главном потоке
-                    publishProgress((int)((total*100)/lengthOfFile));
-                }
-                output.flush();
-                output.close();
-                inputSt.close();
-
-                //******************************************************
-            }
-            catch (Exception ex)
-            {
-                Log.e("Error: ", ex.getMessage());
-            }
-
-           return Drawable.createFromPath(path);
-        }
-
-
-    }
-
-
 
 }

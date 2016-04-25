@@ -2,24 +2,16 @@ package com.example.mypr;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
-import com.squareup.picasso.Picasso;
+import com.nostra13.universalimageloader.core.ImageLoader;
+import com.nostra13.universalimageloader.core.ImageLoaderConfiguration;
 
-import java.net.URI;
-
-/**
- * Created by Ирина on 23.04.2016.
- */
+//класс Activity для отображения детальной информации об артисте
 public class AboutActivity extends Activity
 {
     @Override
@@ -36,17 +28,14 @@ public class AboutActivity extends Activity
 
         //присваиваем картинку
         ImageView img = new ImageView(this);
-        Picasso.with(this)
-                .load(objArtist.cover.big)
-                .placeholder(R.drawable.default300)
-                .into(img);
-        /*Bitmap bmOriginal = BitmapFactory.decodeResource(getResources(), R.drawable.default300);
-        img.setImageBitmap(bmOriginal);
-        img.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));*/
+        ImageLoader imageLoader = ImageLoader.getInstance(); // Получили экземпляр
+        imageLoader.init(ImageLoaderConfiguration.createDefault(this)); // Проинициализировали конфигом по умолчанию
+        imageLoader.displayImage(objArtist.cover.big, img); // Запустили асинхронный показ картинки
         mainLayout.addView(img);
 
         TextView labelName = new TextView(this);
         labelName.setText(objArtist.name);
+        labelName.setTextSize(30);
         labelName.setGravity(Gravity.CENTER);
         mainLayout.addView(labelName);
 
@@ -82,7 +71,4 @@ public class AboutActivity extends Activity
         mainLayout.addView(desc);
 
     }
-
-
-
 }

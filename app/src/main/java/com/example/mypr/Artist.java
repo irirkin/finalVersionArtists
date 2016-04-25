@@ -3,7 +3,7 @@ package com.example.mypr;
 import java.io.Serializable;
 import java.util.List;
 
-
+//класс для хранения структуры информации об артисте согласно json
 public class Artist implements Serializable
 {
     public int id;
